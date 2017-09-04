@@ -45,6 +45,16 @@
       <artifactId>h2</artifactId>
       <version>1.4.196</version>
     </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient</artifactId>
+      <version>4.3.6</version>
+    </dependency>
+    <dependency>
+      <groupId>com.github.scribejava</groupId>
+      <artifactId>scribejava-apis</artifactId>
+      <version>4.2.0</version>
+    </dependency>
   </dependencies>
 
   <build>
