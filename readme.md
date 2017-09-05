@@ -68,7 +68,7 @@ This is how OAuth 1.0a works:
   The *access token* can be used to make requests on behalf of the user.
 * All requests are digitally signed using your *consumer secret*.
 
-The entire process is described in detail on the [OAuth Core 1.0A specification](https://oauth.net/core/1.0a/).
+The entire process is described in detail in the [OAuth Core 1.0A specification](https://oauth.net/core/1.0a/).
 
 OAuth 2.0 is very similar, with some differences:
 * The step for getting the unauthorized request token is skipped.
@@ -172,6 +172,10 @@ try (CloseableHttpClient http = HttpClients.createDefault();
   // read the response
 }
 ```
+
+Note that you can send the same request from the browser to test the request URL.
+The `addParameter` method adds a regular request parameter to the URL (works like `application/x-www-form-urlencoded` used in html forms).
+Sample of an URL with query parameters: `https://some.url/path?param1=value1&param2=value2&param3=value3`.
 
 The response body contains a JSON object.
 You can parse the JSON object using the [Jackson2](https://github.com/FasterXML/jackson-databind) library.
