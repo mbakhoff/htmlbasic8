@@ -240,7 +240,7 @@ These are the steps:
 
 To get access to the user's account, we will have to implement the OAuth 1.0A workflow:
 * get an unauthorized *request token* from Tumblr
-* redirect the user to Tumblr to confirming access
+* redirect the user to Tumblr to confirm access
 * accept the *verification code* from Tumblr when the user is redirected back to our server from Tumblr
 * exchange the *reqest token* and *verification code* for an *access token*
 * store the *access token* for later use (used to access user's account via Tumblr API)
@@ -269,11 +269,12 @@ OAuth1RequestToken requestToken = service.getRequestToken();
 You must specify the *consumer key*, *consumer secret* and the *callback url* to the `ServiceBuilder`.
 The first two are already in *application.properties*.
 It's recommended to also add the *callback url* to *application.properties*.
-When you start the forum app on a public server, then it's address is not localhost and the server admin can update the *callback url* without recompiling the forum code.
+When you start the forum app on a public server, then it's address is not localhost and the server admin can update the *callback url* in the properties file without recompiling the forum code.
 Recall that you can dependency inject the `Environment` object for accessing the properties.
 
 The `getRequestToken()` method will send a request to Tumblr and return a new unauthorized *request token*.
-As with *consumer key*, the *request token* has a companion *request token secret*, both contained in the `OAuth1RequestToken` object.
+As with *consumer key*, the *request token* has a companion *request token secret*.
+Both are contained in the `OAuth1RequestToken` object.
 You must store these values for later usage (use a cookie, the database or store them directly in the controller).
 
 The next step is to redirect the user to Tumblr, so that he/she can grant us access.
@@ -292,12 +293,12 @@ If you only stored the *request token* and *request token secret* values, then c
 We should now have the `OAuth1RequestToken` and the `oauth_verifier` value.
 Send them both to Tumblr using a *POST* request to *https://www.tumblr.com/oauth/access_token*.
 Again, the request needs to contain the signature, nonce, timestamp, etc.
-You can use *JavaScribe* to automate it: `service.getAccessToken(requestToken, verifier)`.
+You can use *ScribeJava* to automate all of it: `service.getAccessToken(requestToken, verifier)`.
 
-The `getAccessToken` method will send a request to Tumblr and return the *access token*.
+The `getAccessToken` method will send a request to Tumblr and return an *access token*.
 This is the reward for the entire long and complicated OAuth workflow.
 As with other tokens, the *access token* consists of the token and the associated secret.
-Store both the values in the database.
+Store both the values in the database for later use.
 
 Note: consider that multiple users could be enabling Tumblr integration at the same time.
 This means you'll have multiple request tokens and redirects going on in parallel.
@@ -308,7 +309,7 @@ Make sure the data structures are thread safe and the tokens are not mixed up.
 Now that we have the *access token*, it's rather easy to access the user's Tumblr account.
 The Tumblr API docs describe different methods that you can use.
 Each API method that uses OAuth authentication must be signed with the access token that we stored earlier.
-This can easily be done using *JavaScribe*:
+This can easily be done using *ScribeJava*:
 ```java
 OAuthRequest request = new OAuthRequest(Verb.GET/POST, "https://some api url");
 service.signRequest(accessToken, request);
@@ -326,9 +327,9 @@ This is where we'll add the forum posts with `!tumble`.
 
 Create a new class `TumbleProcessor` with a method `void process(ForumPost post)`.
 The processor should look for the `!tumble` keyword.
-If it exists, remove it and create a new Tumbler blog post.
+If it exists, remove it and create a new Tumblr blog post.
 
-Dependency inject the processor to the controller that handles adding new posts.
+Dependency inject the processor into the controller that handles adding new posts.
 Run the new `process` method on all new posts.
 Make sure that `TumbleProcessor` is annotated with `@Component`, otherwise Spring can't find it and inject it.
 
