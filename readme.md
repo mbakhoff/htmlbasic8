@@ -230,4 +230,115 @@ Change the forum thread template to show all the photos under the post that cont
 
 ## Adding Tumblr user integration
 
-TODO OAuth + `!tumble`
+In this part we're going to add the feature of sharing a forum post directly on the user's Tumblr blog.
+These are the steps:
+* get access to the user's Tumblr account using OAuth
+* identify the user's blog
+* add a new forum post processor for the `!tumble` keyword, which uploads the post to Tumblr
+
+### Linking the Tumblr account
+
+To get access to the user's account, we will have to implement the OAuth 1.0A workflow:
+* get an unauthorized *request token* from Tumblr
+* redirect the user to Tumblr to confirming access
+* accept the *verification code* from Tumblr when the user is redirected back to our server from Tumblr
+* exchange the *reqest token* and *verification code* for an *access token*
+* store the *access token* for later use (used to access user's account via Tumblr API)
+
+Create a new request handler on the server that starts the OAuth workflow.
+Add a new button to the preferences page which makes a *POST* request to the handler.
+The request handler doesn't take any parameters.
+The request handler will send a *POST* request to Tumblr's *request token endpoint* (*https://www.tumblr.com/oauth/request_token*) and include the *consumer key* and a *callback url*.
+The *callback url* is the address where Tumblr will redirect the user after he/she has granted access to our app.
+Create a new request handler on the server and use its address as the *callback url* (e.g. *https://localhost:8443/something/something*).
+
+According to the OAuth 1.0A specification, the request must also contain a timestamp, nonce, version, signature method and a signature of the entire request.
+This is quite a mess and we don't want to do any of these things manually.
+Instead, we will use a library called *ScribeJava*, which will automate all of it (OAuth2 is more simple, the signatures are not used).
+
+This is how you use *ScribeJava*:
+```java
+OAuth10aService service = new ServiceBuilder(consumerKey)
+    .apiSecret(consumerSecret)
+    .callback(callbackUrl)
+    .build(TumblrApi.instance());
+
+OAuth1RequestToken requestToken = service.getRequestToken();
+```
+
+You must specify the *consumer key*, *consumer secret* and the *callback url* to the `ServiceBuilder`.
+The first two are already in *application.properties*.
+It's recommended to also add the *callback url* to *application.properties*.
+When you start the forum app on a public server, then it's address is not localhost and the server admin can update the *callback url* without recompiling the forum code.
+Recall that you can dependency inject the `Environment` object for accessing the properties.
+
+The `getRequestToken()` method will send a request to Tumblr and return a new unauthorized *request token*.
+As with *consumer key*, the *request token* has a companion *request token secret*, both contained in the `OAuth1RequestToken` object.
+You must store these values for later usage (use a cookie, the database or store them directly in the controller).
+
+The next step is to redirect the user to Tumblr, so that he/she can grant us access.
+The url is *https://www.tumblr.com/oauth/authorize*, with a request parameter named `oauth_token` containing the *request token*.
+You can conveniently generate the url using *ScribeJava*: `service.getAuthorizationUrl(requestToken)`.
+
+When the user has granted access to our application, Tumblr will redirect them back to our *callback url*.
+Our server should receive a *GET* request from the user, containing two request parameters: `oauth_token` and `oauth_verifier`.
+Use `@RequestParam` or `HttpServletRequest#getParameter` to access the parameters.
+
+The `oauth_token` is the same *request token* value that we stored earlier.
+To finish the OAuth workflow, we need the `OAuth1RequestToken` object again (same that we created in the beginning of the workflow).
+If you stored the entire object somehow, then use that.
+If you only stored the *request token* and *request token secret* values, then create a `OAuth1RequestToken` from the stored values.
+
+We should now have the `OAuth1RequestToken` and the `oauth_verifier` value.
+Send them both to Tumblr using a *POST* request to *https://www.tumblr.com/oauth/access_token*.
+Again, the request needs to contain the signature, nonce, timestamp, etc.
+You can use *JavaScribe* to automate it: `service.getAccessToken(requestToken, verifier)`.
+
+The `getAccessToken` method will send a request to Tumblr and return the *access token*.
+This is the reward for the entire long and complicated OAuth workflow.
+As with other tokens, the *access token* consists of the token and the associated secret.
+Store both the values in the database.
+
+Note: consider that multiple users could be enabling Tumblr integration at the same time.
+This means you'll have multiple request tokens and redirects going on in parallel.
+Make sure the data structures are thread safe and the tokens are not mixed up.
+
+### Identifying user info
+
+Now that we have the *access token*, it's rather easy to access the user's Tumblr account.
+The Tumblr API docs describe different methods that you can use.
+Each API method that uses OAuth authentication must be signed with the access token that we stored earlier.
+This can easily be done using *JavaScribe*:
+```java
+OAuthRequest request = new OAuthRequest(Verb.GET/POST, "https://some api url");
+service.signRequest(accessToken, request);
+String responseBody = service.execute(request).getBody();
+```
+
+Send a request to Tumblr and get the user's information (you can do it right in the callback request handler).
+The result should contain a JSON object with a list of the user's blogs.
+Use Jackson2 as earlier to get the blog urls from the response JSON.
+
+Pick the first blog from the list and store it in the database.
+This is where we'll add the forum posts with `!tumble`.
+
+### Processing `!tumble` directives
+
+Create a new class `TumbleProcessor` with a method `void process(ForumPost post)`.
+The processor should look for the `!tumble` keyword.
+If it exists, remove it and create a new Tumbler blog post.
+
+Dependency inject the processor to the controller that handles adding new posts.
+Run the new `process` method on all new posts.
+Make sure that `TumbleProcessor` is annotated with `@Component`, otherwise Spring can't find it and inject it.
+
+Use Tumblr's API to add the blog post.
+The post type should be text.
+You'll need to add a parameter named *body* to the request.
+Use `OAuthRequest#addParameter` to add parameters.
+Make sure to sign the request with the user's access token (add parameters before signing).
+
+Tumblr can take some time to process your API request (2-3 seconds).
+We want our forum to be blazing fast and such delays are unacceptable.
+`TumbleProcessor` should not block adding the forum post while Tumblr is doing its thing.
+Create a thread (or use an [executor](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/Executors.html)) in the `process` method and start the Tumblr request in the background.
