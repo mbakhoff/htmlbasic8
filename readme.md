@@ -9,7 +9,7 @@ This is the functionality we're going to add:
 ## Web services overview
 
 Many larger web apps have a public API that lets you use their functionality.
-Most APIs use the an architectural style called *REST*.
+Most APIs use an architectural style called *REST*.
 In *REST*, the API exposes different resources of the web app (such as users or forum threads) on corresponding URLs.
 The API consumer can access and change the resources using regular HTTP methods: *GET*, *POST*, *PUT* and *DELETE*.
 Most modern APIs return data in the *JSON* format in the response.
@@ -29,7 +29,7 @@ For example, our forum app's *REST* API would look something like this:
 * `DELETE /api/threads/1` would delete the thread with id 1
 
 A standard practice is to allow additional parameters to the API using request parameters.
-For example, to get only the threads of a specific user, the user id could be passed as a parameter: `GET /api/threads?user=mbakhoff`.
+For example, to get only the threads of a specific user, the user could be passed as a parameter: `GET /api/threads?user=mbakhoff`.
 In case of `POST` requests, the parameters are sent in the request body using the `application/x-www-form-urlencoded` encoding (same as HTML forms).
 
 ## API security
@@ -39,7 +39,7 @@ User oriented web services tend to differentiate between two categories of reque
 * requests for public resources
 * requests for a particular user's resources
 
-To use a public resources, most web services have you register your application and give you an *API consumer key* and a *API consumer secret* (strings).
+To use a public resource, most web services have you register your application and give you an *API consumer key* and a *API consumer secret* (strings).
 Your applicaion will include the *consumer key* as a request parameter when making requests to the API.
 This way the service will know who is making the request.
 
@@ -70,7 +70,7 @@ This is how OAuth 1.0a works:
 
 The entire process is described in detail in the [OAuth Core 1.0A specification](https://oauth.net/core/1.0a/).
 
-OAuth 2.0 is very similar, with some differences:
+OAuth 2.0 is very similar, with some differences that make it easier to use:
 * The step for getting the unauthorized request token is skipped.
 * Your application can specify which permissions it needs for the user (OAuth 1.0 authorizes all or nothing).
 * The *verification code* is not used.
@@ -309,14 +309,14 @@ Make sure the data structures are thread safe and the tokens are not mixed up.
 Now that we have the *access token*, it's rather easy to access the user's Tumblr account.
 The Tumblr API docs describe different methods that you can use.
 Each API method that uses OAuth authentication must be signed with the access token that we stored earlier.
-This can easily be done using *ScribeJava*:
+This can be done using *ScribeJava*:
 ```java
 OAuthRequest request = new OAuthRequest(Verb.GET/POST, "https://some api url");
 service.signRequest(accessToken, request);
 String responseBody = service.execute(request).getBody();
 ```
 
-Send a request to Tumblr and get the user's information (you can do it right in the callback request handler).
+Send a request to Tumblr and get the user's information (you can do it right after receiving the access token in the callback handler).
 The result should contain a JSON object with a list of the user's blogs.
 Use Jackson2 as earlier to get the blog urls from the response JSON.
 
@@ -325,7 +325,7 @@ This is where we'll add the forum posts with `!tumble`.
 
 ### Processing `!tumble` directives
 
-Create a new class `TumbleProcessor` with a method `void process(ForumPost post)`.
+Create a new class `TumbleProcessor` with a method `public void process(ForumPost post)`.
 The processor should look for the `!tumble` keyword.
 If it exists, remove it and create a new Tumblr blog post.
 
