@@ -6,6 +6,67 @@ This is the functionality we're going to add:
 * when the user adds a post that contains `!tumble`, then the post is also posted on the user's Tumblr blog,
 * when the user's post contains `!images:<tumblr-permalink>`, then the images in the linked Tumblr post will be displayed under the user's post.
 
+## URL syntax and encoding
+
+Before we begin, it's time to take a deeper look at URL syntax and encoding.
+The official syntax is:
+```
+scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
+```
+
+On the server side we really only care about some parts of it:
+```
+scheme://host[:port][/path][?query]
+```
+
+* *scheme* should always be *https* for web sites (or *http* in case of an insecure site).
+  specifies which protocol to use when communicating with the server.
+* *host* is the dns name of the server.
+  it's used with the port to create the actual network connection to the server.
+* *port* is only specificed when the server is not listening for connections on a standard port.
+  *https* uses port 443 by default, while *http* uses port 80.
+* *path* identifies a resource on the server.
+  it's usually either a file name or a servlet mapping in case of java servers.
+* *query* is an optional string that can be used to pass parameters to the server.
+  **the query string is placed after the path and its start is marked with a question mark `?`**.
+  the query string is usually contains a list of key-value pairs.
+  a key and a value are separated by the equals sign `=` and key-value pairs are separated by an ampersand `&`.
+
+An example of an URL: `https://example.com/summary?id=3&name=mbakhoff`:
+* scheme is `https`
+* host is `example.com`
+* port is the default 443 for https
+* path is `/summary`
+* query string is `id=3&name=mbakhoff` and it contains the two key-value pairs
+
+Encoding an URL is quite a mess.
+The encoding is important when the path needs to contain special symbols, including but not limited to:
+* the path needs to contain a `?` symbol that doesn't mark the start of the query
+* a key or value in the query string needs to contain a `=` or `&` symbol that's not a separator
+
+Don't forget that the *path* and *query* are different things.
+In fact, **they are encoded using different rules**.
+When building an url, always use the right methods for encoding different parts of the URL:
+* encode *path segments* using `org.springframework.web.util.UriUtils#encodePathSegment`
+* encode *query string* keys and values using `org.springframework.web.util.UriUtils#encodeQueryParam`
+
+This is how a bullet-proof solution might look like:
+```java
+String hope = "correct encoding? grade = A+ & success";
+String url = "https://localhost:8443"
+               + "/sample/" + UriUtils.encodePathSegment(hope, "UTF-8")
+               + "?sample=" + UriUtils.encodeQueryParam(hope, "UTF-8");
+// result is (with added line breaks for easy comparison):
+// http://localhost:8080
+//   /sample/correct%20encoding%3F%20grade%20=%20A+%20&%20success
+//   ?sample=correct%20encoding?%20grade%20%3D%20A%2B%20%26%20success
+```
+The special characters are encoded using [Percent-encoding](https://en.wikipedia.org/wiki/Percent-encoding).
+However, the special characters are different for the path part and the query part.
+
+See this excellent article on how not to encode URLs:
+[What every web developer must know about URL encoding](https://www.talisman.org/~erlkonig/misc/lunatech%5Ewhat-every-webdev-must-know-about-url-encoding/).
+
 ## Web services overview
 
 Many larger web apps have a public API that lets you use their functionality.
